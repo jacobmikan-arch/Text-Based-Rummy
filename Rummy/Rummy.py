@@ -32,7 +32,7 @@ class Deck:
         if deck_size > 0:
             deck_size -= 1
             if deck_size == 0:
-                print("-- Deck is Empty --")
+                print("\n-- Deck is Empty --")
                 countdown_start = True
             return self.cards.pop()
         else:
@@ -135,7 +135,7 @@ def can_play_on_table(hand, table, selected_cards = [], checking = False):
                 if can_form_meld_with_card(meld, [card], True):
                     return True
         return False
-    elif checking:
+    else:
         mesh_meld = []
         for meld in table:
             if can_form_meld_with_card(meld, selected_cards, True):
@@ -224,8 +224,6 @@ def play_meld(player, required_card=None):
     meld = []
     for i in indices:
         meld.append(player.hand.pop(i))
-
-    print("✅ You played:", meld)
     return meld
 
 def play_table(player, required_card=None):
@@ -247,7 +245,7 @@ def play_table(player, required_card=None):
     print("\nYour hand:")
     player.show_hand()
     try:
-        indices = input("Which cards do you want to play: ")
+        indices = input("Which card/cards do you want to play: ")
         indices = list(map(int, indices.split()))
         indices.sort(reverse=True)
     except ValueError:
@@ -258,7 +256,7 @@ def play_table(player, required_card=None):
         for i in indices:
             selected_cards.append(player.hand[i])
     except IndexError:
-        print("❌ Please select a number in the provided indexes.")
+        print("❌ Please select a number in the provided indices.")
         return None
     
     try:
@@ -382,6 +380,7 @@ def player_turn(player, deck, discard_pile):
     while can_form_meld_with_card(player.hand):
         meld = play_meld(player, selected_card)
         if meld:
+            print("✅ You played:", meld)
             table.add_meld(player, meld)
         elif meld == False:
             break
@@ -391,6 +390,7 @@ def player_turn(player, deck, discard_pile):
         cards = play_table(player, selected_card)
         if cards:
             for card in cards:
+                print("✅ You played:", card)
                 table.add_indiv(player, card)
         elif cards == False:
             break
@@ -509,7 +509,11 @@ while game_going:
             break
 
 # ------------------ END GAME ------------------
-print("\nGame Over")
+print("\n------ Game Over ------")
 for player in playerlist:
+    for card in player.hand:
+        if card.rank == "A":
+            player.add_points(-15)
+        else:
+            player.add_points(-get_points([card]))
     print("\n"+player.name + "'s Score: "+ str(player.points)+"\n"+player.name+"'s Hand:")
-    player.show_hand()
