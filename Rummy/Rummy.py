@@ -3,7 +3,7 @@ import random
 # ------------------ CARD + DECK + TABLE ------------------
 suits = ['♥', '♦', '♣', '♠']
 ranks =['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
-ranks = ['10', 'J', 'Q', 'K', 'A'] #enable for testing
+#ranks = ['10', 'J', 'Q', 'K', 'A'] #enable for testing
 
 rank_order = {
     '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
@@ -192,9 +192,6 @@ def draw_from_discard(player, discard_pile, index):
     return drawn_cards
 
 def play_meld(player, required_card=None):
-    print("\nYour hand:")
-    player.show_hand()
-
     choice = input("Do you want to play a meld? (y/n): ")
 
     if choice != 'y':
@@ -378,6 +375,8 @@ def player_turn(player, deck, discard_pile):
 
     # -------- PLAY MELDS --------
     while can_form_meld_with_card(player.hand):
+        print("\nYour hand:")
+        player.show_hand()
         meld = play_meld(player, selected_card)
         if meld:
             print("✅ You played:", meld)
