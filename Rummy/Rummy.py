@@ -191,31 +191,10 @@ def draw_from_discard(player, discard_pile, index):
     player.hand.extend(drawn_cards)
     return drawn_cards
 
-def play_meld(player, required_card=None):
-    choice = input("Do you want to play a meld? (y/n): ")
-
-    if choice != 'y':
-        if required_card == None or required_card not in player.hand or can_play_on_table(player.hand, table.melds, [required_card], True):
-            return False
-        print("❌ You must play a meld using the selected discard card!")
-
-    indices = input("Enter card indices (space separated): ")
-    indices = list(map(int, indices.split()))
-    indices.sort(reverse=True)
-
-    selected_cards = []
-    for i in indices:
-        selected_cards.append(player.hand[i])
-    
-    # Enforce required card rule
-    if required_card and required_card not in selected_cards and required_card in player.hand :
-        print("❌ You must use the selected card from discard in your meld!")
-        return None
-
+def play_meld(player, selected_cards, indices):
     # Validate meld
     if not is_valid_meld(selected_cards):
-        print("❌ Invalid meld! Must be a set or run.")
-        return None
+        return 2
 
     # Remove cards ONLY after validation
     meld = []
@@ -377,12 +356,34 @@ def player_turn(player, deck, discard_pile):
     while can_form_meld_with_card(player.hand):
         print("\nYour hand:")
         player.show_hand()
-        meld = play_meld(player, selected_card)
-        if meld:
+        choice = input("Do you want to play a meld? (y/n): ")
+
+        if choice != 'y':
+            if selected_card == None or selected_card not in player.hand or can_play_on_table(player.hand, table.melds, [selected_card], True):
+                break
+            print("❌ You must play a meld using the selected discard card!")
+            continue
+        
+        indices = input("Enter card indices (space separated): ")
+        indices = list(map(int, indices.split()))
+        indices.sort(reverse = True)
+
+        selected_cards = []
+        for i in indices:
+            selected_cards.append(player.hand[i])
+        
+        # Enforce required card rule
+        if selected_card and selected_card not in selected_cards and selected_card in player.hand :
+            print("❌ You must use the selected card from discard in your meld!")
+            continue
+
+        meld = play_meld(player, selected_cards, indices)
+
+        if meld and meld != 2:
             print("✅ You played:", meld)
             table.add_meld(player, meld)
-        elif meld == False:
-            break
+        elif meld == 2:
+            print("❌ Invalid meld! Must be a set or run.")
 
     #----------- PLAY CARDS ON TABLE ---------
     while can_play_on_table(player.hand, table.melds) and player.points != 0:
@@ -393,7 +394,6 @@ def player_turn(player, deck, discard_pile):
                 table.add_indiv(player, card)
         elif cards == False:
             break
-
 
     # -------- DISCARD ---------
     have_discarded = False
