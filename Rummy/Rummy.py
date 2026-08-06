@@ -202,59 +202,17 @@ def play_meld(player, selected_cards, indices):
         meld.append(player.hand.pop(i))
     return meld
 
-def play_table(player, required_card=None):
+def play_table(player, selected_cards, indices):
     global meld_index
-    print("\n")
-    print(table)
-    print("\nYour hand:")
-    player.show_hand()
 
-    choice = input("Do you want to play a card on the table? (y/n): ")
-
-    if choice != 'y':
-        if required_card == None or required_card not in player.hand:
-            return False
-        print("❌ You must play the selected discard card!")
-    
-    print("\n")
-    print(table)
-    print("\nYour hand:")
-    player.show_hand()
-    try:
-        indices = input("Which card/cards do you want to play: ")
-        indices = list(map(int, indices.split()))
-        indices.sort(reverse=True)
-    except ValueError:
-            print("❌ Invalid choice. Try again.")
-            return None
-    selected_cards = []
-    try:
-        for i in indices:
-            selected_cards.append(player.hand[i])
-    except IndexError:
-        print("❌ Please select a number in the provided indices.")
-        return None
-    
-    try:
-        meld_index = int(input("Which meld do you want to add to: "))
-    except ValueError:
-                print("❌ Invalid choice. Try again.")
-                return None
-    
-    if required_card and required_card not in selected_cards and required_card in player.hand :
-        print("❌ You must use the selected card from the discard pile.")
-        return None
-    
     mesh_meld = table.melds[meld_index].copy()
     for card in selected_cards:
         mesh_meld.append(card)
     
     try:
         if not is_valid_meld(mesh_meld):
-            print("❌ Invalid meld! Must form a set or run.")
             return None
     except IndexError:
-        print("❌ Please select a number in the provided indexes.")
         return None
     
     cards = []
@@ -287,6 +245,7 @@ def player_turn(player, deck, discard_pile):
     global countdown
     global countdown_start
     global game_going
+    global meld_index
     if countdown_start:
         countdown -=1
         if countdown == 0:
@@ -333,7 +292,7 @@ def player_turn(player, deck, discard_pile):
 
             else:
                 # Non-top card → must be playable
-                if can_form_meld_with_card(player.hand, selected_cards, True) or can_play_on_table(player.hand, table.melds, selected_cards, True):
+                if can_form_meld_with_card(player.hand, selected_cards, True) or (can_play_on_table(player.hand, table.melds, selected_cards, True) and player.points != 0):
                     # Take all cards from chosen down to top
                     selected_card = discard_pile[index]
                     drawn_cards = discard_pile[index:]
@@ -387,13 +346,58 @@ def player_turn(player, deck, discard_pile):
 
     #----------- PLAY CARDS ON TABLE ---------
     while can_play_on_table(player.hand, table.melds) and player.points != 0:
-        cards = play_table(player, selected_card)
+        print("\n")
+        print(table)
+        print("\nYour hand:")
+        player.show_hand()
+
+        choice = input("Do you want to play a card on the table? (y/n): ")
+        if choice != 'y':
+            if selected_card == None or selected_card not in player.hand:
+                break
+            print("❌ You must play the selected discard card!")
+            continue
+        
+        print("\n")
+        print(table)
+        print("\nYour hand:")
+        player.show_hand()
+        try:
+            indices = input("Which card/cards do you want to play: ")
+            indices = list(map(int, indices.split()))
+            indices.sort(reverse=True)
+        except ValueError:
+                print("❌ Invalid choice. Try again.")
+                continue
+        selected_cards = []
+        try:
+            for i in indices:
+                selected_cards.append(player.hand[i])
+        except IndexError:
+            print("❌ Please select a number in the provided indices.")
+            continue
+
+        if selected_card and selected_card not in selected_cards and selected_card in player.hand :
+            print("❌ You must use the selected card from the discard pile.")
+            continue
+        
+        try:
+            meld_index = int(input("Which meld do you want to add to: "))
+        except ValueError:
+                    print("❌ Invalid choice. Try again.")
+                    continue
+        
+        
+        cards = play_table(player, selected_cards, indices)
         if cards:
             for card in cards:
                 print("✅ You played:", card)
                 table.add_indiv(player, card)
         elif cards == False:
             break
+        else:
+            print("❌ Invalid meld! Must form a set or run.")
+
 
     # -------- DISCARD ---------
     have_discarded = False
