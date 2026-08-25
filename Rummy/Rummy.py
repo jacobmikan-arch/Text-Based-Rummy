@@ -103,7 +103,10 @@ class Player:
 def sort_cards(cards):
     cards.sort(key=lambda card: (rank_order[card.rank], card.suit))
 
-def can_form_meld_with_card(hand, new_cards = [], checking = False):
+def can_form_meld_with_card(hand, new_cards = [], checking = False, check_set = False, check_run = False):
+    global combination
+    global playng_on_table
+    combination = []
     temp_hand = hand + new_cards
 
     # Try all combinations of 3+ cards with selected
@@ -117,7 +120,24 @@ def can_form_meld_with_card(hand, new_cards = [], checking = False):
                         continue
 
                     if is_valid_meld(combo):
+                        if playing_on_table:
+                            combination.append(temp_hand[i])
+                            combination.append(temp_hand[j])
+                            combination.append(temp_hand[k])
                         return True
+                    elif check_set and is_valid_set(combo):
+                        if playing_on_table:
+                            combination.append(temp_hand[i])
+                            combination.append(temp_hand[j])
+                            combination.append(temp_hand[k])
+                        return True
+                    elif check_run and is_valid_run(combo):
+                        if playing_on_table:
+                            combination.append(temp_hand[i])
+                            combination.append(temp_hand[j])
+                            combination.append(temp_hand[k])
+                        return True
+
     #Try all combinations of 3+ cards
     elif (not checking):
         for i in range(len(temp_hand)):
@@ -126,28 +146,46 @@ def can_form_meld_with_card(hand, new_cards = [], checking = False):
                     combo = [temp_hand[i], temp_hand[j], temp_hand[k]]
                     if is_valid_meld(combo):
                         return True
+                    elif check_set and is_valid_set(combo):
+                        return True
+                    elif check_run and is_valid_run(combo):
+                        return True
     return False
 
 def can_play_on_table(hand, table, selected_cards = [], checking = False):
     if not checking:
         for meld in table:
             for card in hand:
-                if can_form_meld_with_card(meld, [card], True):
-                    return True
+                if is_valid_set(meld):
+                    if can_form_meld_with_card(meld, [card], True, True, False):
+                        #print("hey")
+                        return True
+                elif is_valid_run(meld):
+                    if can_form_meld_with_card(meld, [card], True, False, True):
+                        #print("hey2")
+                        return True
         return False
     else:
         mesh_meld = []
         for meld in table:
-            if can_form_meld_with_card(meld, selected_cards, True):
-                return True
+            if is_valid_set(meld):
+                if can_form_meld_with_card(meld, [selected_cards[0]], True, True, False):
+                    #print("hi")
+                    return True
+            elif is_valid_run(meld):
+                if can_form_meld_with_card(meld, [selected_cards[0]], True, False, True):
+                    #print("hi2")
+                    return True
         for meld in table:
-            for card in hand:
-                if can_form_meld_with_card(meld, [card], True):
-                    mesh_meld = meld.copy()
-                    mesh_meld.append(card)
-                    if can_form_meld_with_card(mesh_meld, selected_cards, True):
-                        return True
-        return False
+            if is_valid_run(meld):
+                for card in hand:
+                    if can_form_meld_with_card(meld, [card], True, False, True):
+                        mesh_meld = meld.copy()
+                        mesh_meld.append(card)
+                        if can_form_meld_with_card(mesh_meld, selected_cards, True, False, True):
+                            #print("hello")
+                            return True
+    return False
 
 def is_valid_set(cards):
     if len(cards) < 3:
@@ -318,7 +356,7 @@ def player_turn(player, deck, discard_pile):
         choice = input("Do you want to play a meld? (y/n): ")
 
         if choice != 'y':
-            if selected_card == None or selected_card not in player.hand or can_play_on_table(player.hand, table.melds, [selected_card], True):
+            if selected_card == None or selected_card not in player.hand or (can_play_on_table(player.hand, table.melds, [selected_card], True) and player.points != 0):
                 break
             print("❌ You must play a meld using the selected discard card!")
             continue
@@ -357,7 +395,7 @@ def player_turn(player, deck, discard_pile):
                 break
             print("❌ You must play the selected discard card!")
             continue
-        
+
         print("\n")
         print(table)
         print("\nYour hand:")
@@ -417,64 +455,162 @@ def player_turn(player, deck, discard_pile):
         except ValueError:
             print("❌ Invalid choice. Try again.")
 
-def ai_turn(ai, deck, discard_pile):
-    print("\n--- ", playerlist[ai][1]+ "'S TURN ---")
+def ai_turn(player, deck, discard_pile):
+    print("\n--- ", playerlist[player][1]+ "'S TURN ---")
+    global combination
     global countdown
     global countdown_start
     global game_going
+    global meld_index
+    global playing_on_table
     if countdown_start:
         countdown -=1
         if countdown == 0:
             game_going = False
+    selected_card = None
+    drawn_cards = []
 
-    move_type = random.choice(['deck', 'top', 'multiple'])
+    #define choices for drawing
+    choices = ['d', 'p']
+    pile_choices = []
+    pile_choices.append(len(discard_pile) - 1) #Always allow top card
+    for i in range(len(discard_pile)):
+        selected_cards = discard_pile[i:]
+        if can_form_meld_with_card(player.hand, selected_cards, True) or can_play_on_table(player.hand, table.melds, selected_cards, True):
+            pile_choices.append(i)
+    if len(deck.cards) == 0:
+        choices.remove('d')
+    
+    # ---- DRAW PHASE LOOP ----
+    while True:
+        choice = random.choice(choices)  # Randomly choose to draw from deck or pile
 
-    # -------- DRAW --------
-    if move_type == 'deck' or not discard_pile:
-        card = deck.draw()
-        if card:
-            ai.hand.append(card)
-            print("AI drew a card from the deck.")
+        if choice == 'd':
+            # Draw from deck
+            card = player.draw_card(deck)
+            print(f"{player.name} drew a card from the deck.")
+            break # done with draw phase
 
-    elif move_type == 'top':
-        card = discard_pile.pop()
-        ai.hand.append(card)
-        print(f"AI drew the top discard: {card}")
+        elif choice == 'p':
+            index = random.choice(pile_choices)
 
-    elif move_type == 'multiple' and len(discard_pile) > 1:
-        valid_indices = []
+            selected_cards = discard_pile[index:]
 
-        for i in range(len(discard_pile)):
-            cards = discard_pile[i:]
+            # Top card case → optional meld
+            if index == len(discard_pile) - 1:
+                # Take top card
+                player.hand.append(discard_pile.pop())
+                print(f"{player.name} took down to: {selected_cards[0]}")
+                break  # done with draw phase
 
-            # Always allow top card
-            if i == len(discard_pile) - 1:
-                valid_indices.append(i)
             else:
-                if can_form_meld_with_card(ai.hand, cards, True):
-                    valid_indices.append(i)
+                # Take all cards from chosen down to top
+                selected_card = discard_pile[index]
+                drawn_cards = discard_pile[index:]
+                del discard_pile[index:]
+                player.hand.extend(drawn_cards)
 
-        if (len(valid_indices)>=2):
-            index = random.choice(valid_indices[:-1])
-            drawn_cards = discard_pile[index:]
-            del discard_pile[index:]
-            ai.hand.extend(drawn_cards)
+                print(f"{player.name} picked up:")
+                for card in drawn_cards:
+                    print(card)
+                break  # done with draw phase
 
-            print("AI picked up multiple cards from discard:")
-            for c in drawn_cards:
-                print("   ", c)
+    # -------- PLAY MELDS --------
+
+    while can_form_meld_with_card(player.hand):
+        no_included = False
+
+        yes_or_no = ['y']
+        #yes_or_no = [] #used for testing
+        if selected_card == None or selected_card not in player.hand or (can_play_on_table(player.hand, table.melds, [selected_card], True)and player.points != 0):
+            yes_or_no.append('n')  # Allow 'n' if no required card
+            no_included = True
+
+
+        choice = random.choice(yes_or_no)  # Randomly choose to play a meld or not
+        if choice != 'y':
+            break
+        meld_choices = []
+        for i in range(len(player.hand)):
+            for j in range(i + 1, len(player.hand)):
+                for k in range(j + 1, len(player.hand)):
+                    combo = [player.hand[i], player.hand[j], player.hand[k]]
+                    if is_valid_meld(combo) and no_included:
+                        meld_choices.append((combo, [i, j, k]))
+                    elif is_valid_meld(combo) and not no_included and selected_card in combo:
+                        meld_choices.append((combo, [i, j, k]))
+        meld, indices = random.choice(meld_choices)  # Randomly select a meld from the available choices
+
+        selected_cards = meld
+        indices.sort(reverse=True)
+
+        meld = play_meld(player, selected_cards, indices)
+
+        if meld and meld != 2:
+            sort_cards(meld)
+            print(f"{player.name} played:", meld)
+            table.add_meld(player, meld)
+
+    #----------- PLAY CARDS ON TABLE ---------
+    while can_play_on_table(player.hand, table.melds) and player.points != 0:
+        no_included = False
+        yes_or_no = ['y']
+        if selected_card == None or selected_card not in player.hand:
+            yes_or_no.append('n')  # Allow 'n' if no required card
+            no_included = True
+        choice = random.choice(yes_or_no)  #choose to play a meld or not
+        if choice != 'y':
+            break
+        check_others = False
+        combination = []
+        playing_on_table = True
+        playable_cards = []
+        for i in range(len(player.hand)):
+            for meld in table.melds:
+                meld_index = table.melds.index(meld)
+                if can_form_meld_with_card(meld, [player.hand[i]], True) and no_included:
+                    combination = [player.hand[i]]
+                    playable_cards.append([combination, [i, meld_index]])
+                elif can_form_meld_with_card(meld, [player.hand[i]], True) and not no_included and selected_card == player.hand[i]:
+                    for card in table.melds[meld_index]:
+                        try:
+                            combination.remove(card)
+                        except ValueError:
+                            pass
+                        check_others = True
+                    playable_cards.append([combination, [i, meld_index]])
+
+        choice_cards = random.choice(playable_cards)
+
+        meld_index = choice_cards[1][1]
+
+        index_of_other = None
+        if check_others:
+            if choice_cards[0].index(selected_card) != 0:
+                index_of_other = 0
+            elif choice_cards[0].index(selected_card) != 1 and len(choice_cards[0]) > 1:
+                index_of_other = 1
+            else:
+                check_others = False
+
+        if check_others:
+            indices = [choice_cards[1][0], player.hand.index(choice_cards[0][index_of_other])]
         else:
-            # fallback to deck
-            card = ai.draw_card(deck)
-            if card:
-                print("AI drew a card from the deck.")
+            indices = [choice_cards[1][0]]
 
-    # -------- DISCARD --------
-    discard_index = random.randint(0, len(ai.hand) - 1)
-    card = ai.discard(discard_index)
-    discard_pile.append(card)
+        cards = play_table(player, combination, indices)
+        if cards:
+            for card in cards:
+                print(player.name + " played:", card, "on", table.melds[meld_index])
+                table.add_indiv(player, card)
+        playing_on_table = False
 
-    print(f"AI discarded: {card}")
+    # -------- DISCARD ---------
+    if len(player.hand) > 0:
+        choice = random.randint(0, len(player.hand)-1)
+        card = player.discard(choice)
+        discard_pile.append(card)
+        print(player.name + " discarded:", card)
 
 
 # ------------------ GAME SETUP ------------------
@@ -484,7 +620,11 @@ discard_pile = [] #instantiate discard_pile
 
 meld_index = 0 #used for playing cards on table
 
-players = {"DEV":"Human", "AI": "Human"} #players provided to the game in this form (temporary)
+combination = [] #used for playing cards on table
+
+playing_on_table = False #used for playing cards on table
+
+players = {"DEV":"Human", "AI": "Bot"} #players provided to the game in this form (temporary)
 
 playerlist = {}
 # create players in playerlist in the form player object, [player type ("Bot" or "Human"), player name str]
@@ -513,10 +653,12 @@ while game_going:
 
 # ------------------ END GAME ------------------
 print("\n------ Game Over ------")
+print(table)
+print("Final Scores:")
 for player in playerlist:
     for card in player.hand:
         if card.rank == "A":
             player.add_points(-15)
         else:
             player.add_points(-get_points([card]))
-    print("\n"+player.name + "'s Score: "+ str(player.points)+"\n"+player.name+"'s Hand:")
+    print("\n"+player.name + "'s Score: "+ str(player.points)+"\n"+player.name+"'s Hand:"+str(player.hand))
