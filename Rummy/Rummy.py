@@ -1,6 +1,6 @@
 import random
 testing = False
-while testing:
+while True:
     # ------------------ CARD + DECK + TABLE ------------------
     suits = ['♥', '♦', '♣', '♠']
     ranks =['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
@@ -12,9 +12,9 @@ while testing:
         'J': 11, 'Q': 12, 'K': 13, 'A': 14
     } #used for sorting hand
     rank_order_reverse = {
-        1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6',
+        0: 'K', 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6',
         7: '7', 8: '8', 9: '9', 10: '10',
-        11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2'
+        11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2', 16: '3'
     } #used for wrapping and finding next
 
     deck_size = len(ranks)*len(suits) #used for ending game
@@ -26,6 +26,11 @@ while testing:
 
         def __repr__(self):
             return f"{self.rank} of {self.suit}"
+        
+        def __eq__(self, other):
+            if not isinstance(other, Card):
+                return NotImplemented
+            return self.suit == other.suit and self.rank == other.rank
 
     class Deck:
         def __init__(self):
@@ -112,18 +117,20 @@ while testing:
         if not is_valid_run(meld) or required_card.suit != meld[0].suit:
             return None
         check_card_1 = Card(required_card.suit, rank_order_reverse[rank_order[required_card.rank] + 1])
+        check_card_3 = Card(required_card.suit, rank_order_reverse[rank_order[required_card.rank] + 2])
         temp_meld_max = meld.copy()
         temp_meld_max.append(check_card_1)
         temp_meld_max.append(required_card)
         check_card_2 = Card(required_card.suit, rank_order_reverse[rank_order[required_card.rank] - 1])
+        check_card_4 = Card(required_card.suit, rank_order_reverse[rank_order[required_card.rank] - 2])
         temp_meld_min = meld.copy()
         temp_meld_min.append(check_card_2)
         temp_meld_min.append(required_card)
-        if check_card_1 in hand and is_valid_run(temp_meld_max) or check_card_2 in hand and is_valid_run(temp_meld_min):
+        if check_card_1 in hand and is_valid_run(temp_meld_max) and check_card_3 != None and check_card_3 in temp_meld_max and check_card_2 in hand and is_valid_run(temp_meld_min) and check_card_4.rank and check_card_4 in temp_meld_min:
             return [check_card_1, check_card_2]
-        elif check_card_1 in hand and is_valid_run(temp_meld_max):
+        elif check_card_1 in hand and is_valid_run(temp_meld_max) and check_card_3 != None and check_card_3 in temp_meld_max :
             return [check_card_1]
-        elif check_card_2 in hand and is_valid_run(temp_meld_min):
+        elif check_card_2 in hand and is_valid_run(temp_meld_min) and check_card_4 != None and check_card_4  in temp_meld_min:
             return [check_card_2]
         return None
 
@@ -149,18 +156,6 @@ while testing:
                                 combination.append(temp_hand[j])
                                 combination.append(temp_hand[k])
                             return True
-                        elif check_set and is_valid_set(combo):
-                            if playing_on_table:
-                                combination.append(temp_hand[i])
-                                combination.append(temp_hand[j])
-                                combination.append(temp_hand[k])
-                            return True
-                        elif check_run and is_valid_run(combo):
-                            if playing_on_table:
-                                combination.append(temp_hand[i])
-                                combination.append(temp_hand[j])
-                                combination.append(temp_hand[k])
-                            return True
 
         #Try all combinations of 3+ cards
         elif (not checking):
@@ -180,32 +175,19 @@ while testing:
         if not checking:
             for meld in table:
                 for card in hand:
-                    if is_valid_set(meld):
-                        if can_form_meld_with_card(meld, [card], True, True, False):
-                            return True
-                    elif is_valid_run(meld):
-                        if can_form_meld_with_card(meld, [card], True, False, True):
-                            return True
+                    if is_valid_meld(meld + [card]):
+                        return True
             return False
         else:
-            mesh_meld = []
+            required_card = selected_cards[0]
             for meld in table:
-                if is_valid_set(meld):
-                    if can_form_meld_with_card(meld, [selected_cards[0]], True, True, False):
-                        return True
-                elif is_valid_run(meld):
-                    if can_form_meld_with_card(meld, [selected_cards[0]], True, False, True):
-                        return True
+                if is_valid_meld(meld + [required_card]):
+                    return True
             for meld in table:
                 if is_valid_run(meld):
                     for card in hand:
-                        if can_form_meld_with_card(meld, [card], True, False, True):
-                            mesh_meld = meld.copy()
-                            mesh_meld.append(card)
-                            if can_form_meld_with_card(mesh_meld, selected_cards, True, False, True):
-                                return True
-                    if find_required_run_addition(hand, meld, selected_cards[0]) is not None:
-                        return True
+                        if card != required_card and is_valid_run(meld + [card, required_card]):
+                            return True
         return False
 
     def is_valid_set(cards):
@@ -544,12 +526,9 @@ while testing:
                     for current_meld_index, meld in enumerate(table.melds):
                         candidates = find_required_run_addition(player.hand, meld, selected_card)
                         if candidates is not None:
-                            print("helper")
-                            testing = False
                             for card in candidates:
                                 helper_card.append(card)
                                 forced_meld_indices.append(current_meld_index)
-                            print(helper_card)
                             break
                     player.hand.append(selected_card)
                     break  # done with draw phase
@@ -566,24 +545,22 @@ while testing:
             if choice != 'y':
                 break
             meld_choices = []
-            if helper_card:
-                print("helper")
-                print(helper_card)
-                print(yes_or_no)
-                print(table)
-                print(player.hand)
+            tried_helper = False
             for i in range(len(player.hand)):
                 for j in range(i + 1, len(player.hand)):
                     for k in range(j + 1, len(player.hand)):
                         combo = [player.hand[i], player.hand[j], player.hand[k]]
                         valid = is_valid_meld(combo)
-                        if valid and no_included and len(helper_card) != 0 and helper_card[0] in combo:
+                        if valid and no_included and len(helper_card) != 0 and helper_card[0] in combo and not selected_card in combo:
                             if len(helper_card) == 1 and selected_card in player.hand:
+                                tried_helper = True
                                 continue
                             else:
                                 meld_choices.append((combo, [i, j, k]))
-                        elif valid and (no_included) or (valid and selected_card in combo):
+                        elif (valid and no_included) or (valid and selected_card in combo):
                             meld_choices.append((combo, [i, j, k]))
+            if tried_helper and len(meld_choices) == 0:
+                break
             meld, indices = random.choice(meld_choices)  # Randomly select a meld from the available choices
             for i in range(len(helper_card)):
                 card = helper_card[i]
@@ -610,14 +587,12 @@ while testing:
             choice = random.choice(yes_or_no)  #choose to play a meld or not
             if choice != 'y':
                 break
-            check_others = False
             multiple = False
             combination = []
             playing_on_table = True
             playable_cards = []
             for i in range(len(player.hand)):
-                for meld in table.melds:
-                    meld_index = table.melds.index(meld)
+                for meld_index, meld in enumerate(table.melds):
                     if can_form_meld_with_card(meld, [player.hand[i]], True) and no_included:
                         combination = [player.hand[i]]
                         playable_cards.append([combination, [i, meld_index]])
@@ -631,12 +606,12 @@ while testing:
             #check 2 consecutive
             if selected_card in player.hand and len(helper_card) != 0:
                 for i in range(len(helper_card)):
-                            combination = []
-                            card = helper_card[i]
-                            combination.append(selected_card)
-                            combination.append(helper_card[i])
-                            playable_cards.append([combination,[player.hand.index(selected_card), forced_meld_indices[i]]])
-                            multiple = True
+                    combination = []
+                    card = helper_card[i]
+                    combination.append(selected_card)
+                    combination.append(helper_card[i])
+                    playable_cards.append([combination,[player.hand.index(selected_card), forced_meld_indices[i]]])
+                    multiple = True
             #playable_cards in form [[combination of cards to add], then [index in player hand of selected card, meld_index to add to]]
             choice_cards = random.choice(playable_cards)
 
@@ -656,10 +631,6 @@ while testing:
                         table.add_indiv(player, card)
                 playing_on_table = False
             else:
-                print(yes_or_no)
-                print(table)
-                print(player.hand)
-                print("helper")
                 if cards:
                     print(player.name + " played:", cards, "on", table.melds[meld_index])
                     for card in reversed(cards):
@@ -686,7 +657,7 @@ while testing:
 
     playing_on_table = False #used for playing cards on table
 
-    players = {"DEV":"Bot", "AI": "Bot"} #players provided to the game in this form (temporary)
+    players = {"DEV":"Human", "AI": "Bot"} #players provided to the game in this form (temporary)
 
     playerlist = {}
     # create players in playerlist in the form player object, [player type ("Bot" or "Human"), player name str]
@@ -709,8 +680,6 @@ while testing:
 
     while game_going:
         for player in playerlist:
-            if game_going == False:
-                break
             player.turn(player, deck, discard_pile)
             if game_going == False:
                 break
@@ -726,3 +695,9 @@ while testing:
             else:
                 player.add_points(-get_points([card]))
         print("\n"+player.name + "'s Score: "+ str(player.points)+"\n"+player.name+"'s Hand:"+str(player.hand))
+    if testing == False:
+          break
+    #bugtesters
+    #print(helper_card)
+    #print(table)
+    #print(player.name + str(player.hand))
