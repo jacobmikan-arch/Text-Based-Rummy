@@ -55,7 +55,6 @@ class Table:
         player.add_points(get_points(mesh_meld) - get_points(self.melds[meld_index]))
         self.melds[meld_index].append(card)
         sort_cards(self.melds[meld_index])
-        meld_index=0
 
     def __repr__(self):
         string = "Table Melds:"
@@ -103,6 +102,30 @@ class Player:
 def sort_cards(cards):
     cards.sort(key=lambda card: (rank_order[card.rank], card.suit))
 
+def find_required_run_addition(hand, meld, required_card):
+    if not is_valid_run(meld) or required_card.suit != meld[0].suit:
+        return None
+
+    meld_ranks = {card.rank for card in meld}
+    candidates = [
+        card for card in hand
+        if card is not required_card
+        and card.suit == meld[0].suit
+        and card.rank not in meld_ranks
+    ]
+
+    def find_addition(start, additions):
+        cards_to_add = [required_card] + additions
+        if is_valid_run(meld + cards_to_add):
+            return cards_to_add
+
+        for index in range(start, len(candidates)):
+            result = find_addition(index + 1, additions + [candidates[index]])
+            if result is not None:
+                return result
+        return None
+
+    return find_addition(0, [])
 def can_form_meld_with_card(hand, new_cards = [], checking = False, check_set = False, check_run = False):
     global combination
     global playng_on_table
@@ -119,7 +142,7 @@ def can_form_meld_with_card(hand, new_cards = [], checking = False, check_set = 
                     if new_cards[0] not in combo:
                         continue
 
-                    if is_valid_meld(combo):
+                    if is_valid_meld(combo) and not check_set and not check_run:
                         if playing_on_table:
                             combination.append(temp_hand[i])
                             combination.append(temp_hand[j])
@@ -158,11 +181,9 @@ def can_play_on_table(hand, table, selected_cards = [], checking = False):
             for card in hand:
                 if is_valid_set(meld):
                     if can_form_meld_with_card(meld, [card], True, True, False):
-                        #print("hey")
                         return True
                 elif is_valid_run(meld):
                     if can_form_meld_with_card(meld, [card], True, False, True):
-                        #print("hey2")
                         return True
         return False
     else:
@@ -170,11 +191,9 @@ def can_play_on_table(hand, table, selected_cards = [], checking = False):
         for meld in table:
             if is_valid_set(meld):
                 if can_form_meld_with_card(meld, [selected_cards[0]], True, True, False):
-                    #print("hi")
                     return True
             elif is_valid_run(meld):
                 if can_form_meld_with_card(meld, [selected_cards[0]], True, False, True):
-                    #print("hi2")
                     return True
         for meld in table:
             if is_valid_run(meld):
@@ -183,8 +202,9 @@ def can_play_on_table(hand, table, selected_cards = [], checking = False):
                         mesh_meld = meld.copy()
                         mesh_meld.append(card)
                         if can_form_meld_with_card(mesh_meld, selected_cards, True, False, True):
-                            #print("hello")
                             return True
+                if find_required_run_addition(hand, meld, selected_cards[0]) is not None:
+                    return True
     return False
 
 def is_valid_set(cards):
@@ -292,7 +312,7 @@ def player_turn(player, deck, discard_pile):
     drawn_cards = []
 
     # ---- DRAW PHASE LOOP ----
-    while True:
+    while len(discard_pile) != 0 or deck_size != 0:
         print("\nDiscard pile:")
         for i, card in enumerate(discard_pile):
             print(f"{i}: {card}")
@@ -476,13 +496,15 @@ def ai_turn(player, deck, discard_pile):
     pile_choices.append(len(discard_pile) - 1) #Always allow top card
     for i in range(len(discard_pile)):
         selected_cards = discard_pile[i:]
-        if can_form_meld_with_card(player.hand, selected_cards, True) or can_play_on_table(player.hand, table.melds, selected_cards, True):
+        if can_form_meld_with_card(player.hand, selected_cards, True) or (can_play_on_table(player.hand, table.melds, selected_cards, True) and player.points != 0):
             pile_choices.append(i)
     if len(deck.cards) == 0:
         choices.remove('d')
+    if len(discard_pile) == 0:
+        choices.remove('p')
     
     # ---- DRAW PHASE LOOP ----
-    while True:
+    while len(choices) != 0:
         choice = random.choice(choices)  # Randomly choose to draw from deck or pile
 
         if choice == 'd':
@@ -523,10 +545,8 @@ def ai_turn(player, deck, discard_pile):
         yes_or_no = ['y']
         #yes_or_no = [] #used for testing
         if selected_card == None or selected_card not in player.hand or (can_play_on_table(player.hand, table.melds, [selected_card], True)and player.points != 0):
-            yes_or_no.append('n')  # Allow 'n' if no required card
+            yes_or_no.append('n')  # Allow 'n' if no required card or it can be played on table
             no_included = True
-
-
         choice = random.choice(yes_or_no)  # Randomly choose to play a meld or not
         if choice != 'y':
             break
@@ -535,12 +555,13 @@ def ai_turn(player, deck, discard_pile):
             for j in range(i + 1, len(player.hand)):
                 for k in range(j + 1, len(player.hand)):
                     combo = [player.hand[i], player.hand[j], player.hand[k]]
-                    if is_valid_meld(combo) and no_included:
+                    if is_valid_meld(combo) and (no_included and selected_card not in combo):
                         meld_choices.append((combo, [i, j, k]))
                     elif is_valid_meld(combo) and not no_included and selected_card in combo:
                         meld_choices.append((combo, [i, j, k]))
+        print(table)
+        print(player.hand)
         meld, indices = random.choice(meld_choices)  # Randomly select a meld from the available choices
-
         selected_cards = meld
         indices.sort(reverse=True)
 
@@ -562,6 +583,7 @@ def ai_turn(player, deck, discard_pile):
         if choice != 'y':
             break
         check_others = False
+        multiple = False
         combination = []
         playing_on_table = True
         playable_cards = []
@@ -579,31 +601,43 @@ def ai_turn(player, deck, discard_pile):
                             pass
                         check_others = True
                     playable_cards.append([combination, [i, meld_index]])
-
+        #check 2 consecutive
+        if not playable_cards and not no_included:
+            cards = None
+            for current_meld_index, meld in enumerate(table.melds):
+                cards_to_play = find_required_run_addition(player.hand, meld, selected_card)
+                if cards_to_play is not None:
+                    meld_index = current_meld_index
+                    combination = cards_to_play
+                    playable_cards.append([combination, [player.hand.index(selected_card), meld_index]])
+                    check_others = True
+                    multiple = True
+                    break
+        #playable_cards in form [[combination of cards to add], then [index in player hand of selected card, meld_index to add to]]
         choice_cards = random.choice(playable_cards)
 
         meld_index = choice_cards[1][1]
 
-        index_of_other = None
         if check_others:
-            if choice_cards[0].index(selected_card) != 0:
-                index_of_other = 0
-            elif choice_cards[0].index(selected_card) != 1 and len(choice_cards[0]) > 1:
-                index_of_other = 1
-            else:
-                check_others = False
-
-        if check_others:
-            indices = [choice_cards[1][0], player.hand.index(choice_cards[0][index_of_other])]
+            indices = sorted((player.hand.index(card) for card in choice_cards[0]),reverse=True)
         else:
             indices = [choice_cards[1][0]]
 
-        cards = play_table(player, combination, indices)
-        if cards:
-            for card in cards:
-                print(player.name + " played:", card, "on", table.melds[meld_index])
-                table.add_indiv(player, card)
-        playing_on_table = False
+        cards = play_table(player, choice_cards[0], indices)
+        sort_cards(cards)
+        if not multiple:
+            if cards:
+                for card in cards:
+                    print(player.name + " played:", card, "on", table.melds[meld_index])
+                    table.add_indiv(player, card)
+            playing_on_table = False
+        else:
+            if cards:
+                print(player.name + " played:", cards, "on", table.melds[meld_index])
+                for card in reversed(cards):
+                    table.add_indiv(player, card)
+            playing_on_table = False
+
 
     # -------- DISCARD ---------
     if len(player.hand) > 0:
@@ -647,6 +681,8 @@ game_going = True
 
 while game_going:
     for player in playerlist:
+        if game_going == False:
+            break
         player.turn(player, deck, discard_pile)
         if game_going == False:
             break
