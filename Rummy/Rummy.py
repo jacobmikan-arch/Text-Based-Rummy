@@ -94,7 +94,7 @@ while True:
     threshold_reached = False
     threshold = 0
     threshold_players = []
-    choice = input("Do you want to simulate a game between 2 bots to 500 points? (y) or (n) ")
+    choice = input("Do you want to 1v1 a bot to 500 points? (y) or (n) ")
     #choice = "y" #used for testing
 
     if choice != "y":
@@ -140,7 +140,7 @@ while True:
 
     else:
         threshold = 500
-        players = {"Barry The Bot":"Bot", "Bob the Bot": "Bot"} #players provided to the game in this form (temporary)
+        players = {"PLayer":"Human", "Bob the Bot": "Bot"} #players provided to the game in this form (temporary)
     # create players in playerlist in the form player object, [player type ("Bot" or "Human"), player name str]
     playerlist = {}
     for playername in players:
