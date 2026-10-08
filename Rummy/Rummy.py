@@ -96,6 +96,7 @@ while True:
     threshold_players = []
     choice = input("Do you want to simulate a game between 2 bots to 500 points? (y) or (n) ")
     #choice = "y" #used for testing
+
     if choice != "y":
         try:
             while not threshold > 0:
@@ -136,15 +137,20 @@ while True:
                 adding_players = False
         if end_game:
             break
+
     else:
         threshold = 500
         players = {"Barry The Bot":"Bot", "Bob the Bot": "Bot"} #players provided to the game in this form (temporary)
-
-    playerlist = {}
     # create players in playerlist in the form player object, [player type ("Bot" or "Human"), player name str]
+    playerlist = {}
     for playername in players:
         player = Player(playername)
         playerlist.update({player: [players[playername], playername]})
+    list_of_players = []
+    for playername in playerlist:
+        list_of_players.append(playername)
+    random.shuffle(list_of_players)
+       
     
     #-------------Gameplay-------------
     while not threshold_reached:
@@ -732,7 +738,7 @@ while True:
             for _ in range(7):
                 player.draw_card(deck)
         while game_going:
-            for player in playerlist:
+            for player in list_of_players:
                 player.turn(player, deck, discard_pile)
                 if game_going == False:
                     break
@@ -754,6 +760,8 @@ while True:
                 threshold_reached = True
                 threshold_players.append(player)
                 print("🎉🎉🎉🎉"+player.name +" has reached the threshold to win"+"🎉🎉🎉🎉\n")
+        #the next player starts each round
+        list_of_players.append(list_of_players.pop(0))
     
     winner = None
     for player in threshold_players:
